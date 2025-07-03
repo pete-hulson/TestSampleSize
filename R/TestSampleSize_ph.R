@@ -184,357 +184,80 @@ colMeans(test)
 # do a comparison in surveyISS between full bootstrap and haul only bootstrap
 # check out simulation to see if resampling haul causes issues
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# effective sample size for mean across rows
-
-# set up sampling variables
-N = 500 # number of pop'n units/schools
-H = 100 # number of hauls
-SubSize = 10 # size of subsample
-Nsims = 100 # number of sim replicates
-
-R = 25
-test = NULL
-for(r in 1:R){
-  Save = matrix(NA, nrow=Nsims, ncol=4)
-  
-  for(SimI in 1:nrow(Save)){
-    
-    # 'true' prop in pop'n units/schools
-    Prop = rdirichlet(N, alpha=rep(1,10))
-    # 'true' pop'n comp
-    aTrue = colMeans(Prop)
-    
-    # pop'n units sampled in hauls
-    SampProp = Prop[sample(1:N, H, replace = TRUE),]
-    colMeans(SampProp)
-    # get haul sample
-    Rand = NULL
-    for(i in 1:H) Rand = rbind(Rand, t(rmultinom(1, SubSize, SampProp[i,])))
-    # 'survey' comps
-    aSurv = Norm(colSums(Rand))
-    
-    # effective sample size of 'survey'
-    Neff_surv = sum(aSurv * (1 - aSurv)) / sum((aSurv - aTrue)^2)
-    Save[SimI, 1] = Neff_surv
-    
-    # resample hauls (to be consistent across tests)
-    WhichRow = sample(1:nrow(Rand), replace = TRUE)
-    
-    # two-stage bootstrap
-    Neff = aBoot = NULL
-    for(BootI in 1:Nsims){
-      CompBoot = Rand[WhichRow,]
-      CompBoot = t(apply(CompBoot, MARGIN=1, FUN=SampFn))
-      aBoot = rbind(aBoot, Norm(colSums(CompBoot)))
-      Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aSurv)^2 ) )
-    }
-    Save[SimI,2] = mean(Neff)
-    
-    # one-stage "tow-level" bootstrap
-    Neff = aBoot = NULL
-    for(BootI in 1:Nsims){
-      CompBoot = Rand[WhichRow,]
-      aBoot = rbind(aBoot, Norm(colSums(CompBoot)))
-      Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aSurv)^2 ) )
-    }
-    Save[SimI,3] = mean(Neff)
-    
-    # two-stage: (1) resample tows, (2) multinomial draw based on school proportions
-    Neff = aBoot = NULL
-    for(BootI in 1:Nsims){
-      SampProp2 = SampProp[WhichRow,]
-      Rand2 = NULL
-      for(i in 1:H) Rand2 = rbind(Rand2, t(rmultinom(1, SubSize, SampProp2[i,])))
-      aBoot = rbind(aBoot, Norm(colSums(Rand2)))
-      Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aSurv)^2 ) )
-    }
-    Save[SimI,4] = mean(Neff)
-    
-  }
-  test = rbind(test, colMeans(Save))
-}
-test
-
-colMeans(test)
-
-
-
-
-
-
-
-
-# effective sample size for mean across rows
-Size = 10
-N = 100
-Nsims = 100
-Save = matrix(NA, nrow=Nsims, ncol=8)
-for(SimI in 1:nrow(Save)){
-  
-  # set up pop'n
-  Prop = rdirichlet(1, alpha=rep(1,10))
-  
-  # set up sample
-  Rand = t(Rmultinom(N, size = Size, prob = Prop[1,]))
-  aOrig = Norm(colSums(Rand))
-  
-  # two-stage bootstrap
-  Neff = aBoot = NULL
-  for(BootI in 1:Nsims){
-    WhichRow = sample(1:nrow(Rand), replace=TRUE)
-    CompBoot = Rand[WhichRow,]
-    CompBoot = t(apply(CompBoot, MARGIN=1, FUN=SampFn))
-    aBoot = rbind(aBoot, Norm(colSums(CompBoot)) )
-    Neff = c(Neff, sum(aBoot[BootI,] * (1 - aBoot[BootI,])) / sum((aBoot[BootI,] - aOrig)^2))
-  }
-  Save[SimI,1] = mean(Neff)
-  Save[SimI,2] = 1 / mean(1 / Neff)
-  
-  # two-stage: 1st sample hauls, 2nd multi draw of Prop
-  Neff = aBoot = NULL
-  for(BootI in 1:Nsims){
-    WhichRow = sample(1:nrow(Rand), replace=TRUE)
-    CompBoot = Rand[WhichRow,]
-    CompBoot = t(apply(CompBoot, MARGIN=1, FUN=SampFn))
-    aBoot = rbind(aBoot, Norm(colSums(CompBoot)) )
-    Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aOrig)^2 ) )
-  }
-  Save[SimI,1] = mean(Neff)
-  Save[SimI,2] = 1 / mean( 1/Neff )
-  
-  
-  
-  
-  
-  # one-stage "aggregated" bootstrap
-  Neff = aBoot = NULL
-  for(BootI in 1:Nsims){
-    CompBoot = SampFn(colSums(Rand))
-    aBoot = rbind(aBoot, Norm(CompBoot) )
-    Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aOrig)^2 ) )
-  }
-  Save[SimI,3] = mean(Neff)
-  Save[SimI,4] = 1 / mean( 1/Neff )
-  
-  # one-stage "data-level" bootstrap
-  Prop = rdirichlet(1, alpha=rep(1,10))
-  Rand = t( Rmultinom(N, size=Size, prob=Prop[1,]) )
-  aOrig = Norm(colSums(Rand))
-  Neff = aBoot = NULL
-  for(BootI in 1:Nsims){
-    CompBoot = t(apply(Rand, MARGIN=1, FUN=SampFn))
-    aBoot = rbind(aBoot, Norm(colSums(CompBoot)) )
-    Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aOrig)^2 ) )
-  }
-  Save[SimI,5] = mean(Neff)
-  Save[SimI,6] = 1 / mean( 1/Neff )
-  
-  # one-stage "tow-level" bootstrap
-  Prop = rdirichlet(1, alpha=rep(1,10))
-  Rand = t( Rmultinom(N, size=Size, prob=Prop[1,]) )
-  aOrig = Norm(colSums(Rand))
-  Neff = aBoot = NULL
-  for(BootI in 1:Nsims){
-    WhichRow = sample(1:nrow(Rand), replace=TRUE)
-    CompBoot = Rand[WhichRow,]
-    aBoot = rbind(aBoot, Norm(colSums(CompBoot)) )
-    Neff = c(Neff, sum( aBoot[BootI,] * (1-aBoot[BootI,])) / sum( (aBoot[BootI,]-aOrig)^2 ) )
-  }
-  Save[SimI,7] = mean(Neff)
-  Save[SimI,8] = 1 / mean( 1/Neff )
-}
-colMeans(Save)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# another test
-
-# set up comp
-Prop = rdirichlet(1, alpha=rep(1,10))
-# set up pop'n unit
-N = 1000
-PopUnit = t(rmultinom(1, N, Prop[1,]))
-# we know that, on average, the Neff_PopUnit will equal N
-Neff_PopUnit = sum(Norm(PopUnit) * (1 - Norm(PopUnit))) / sum((Norm(PopUnit) - Prop[1,])^2 )
-
-# now subsample pop'n unit
-n = 100 # sample size
-H = 100 # number of sample replicates (i.e., H for hauls)
-
-Sub_PopUnit = t(rmultinom(H, n, Norm(PopUnit)))
-Neff_Sub = NULL
-for(i in 1:H) Neff_Sub = c(Neff_Sub, sum(Norm(Sub_PopUnit[i,]) * (1 - Norm(Sub_PopUnit[i,]))) / sum((Norm(Sub_PopUnit[i,]) - Norm(PopUnit))^2 ))
-# we also know that, on average, Neff_Sub will equal n
-mean(Neff_Sub)
-1 / mean(1 / Neff_Sub)
-
-# now, bootstrap the sample
-BootSub_PopUnit = t(apply(Sub_PopUnit, MARGIN=1, FUN=SampFn))
-Neff_BootSub = NULL
-for(i in 1:H) Neff_BootSub = c(Neff_BootSub, sum(Norm(BootSub_PopUnit[i,]) * (1 - Norm(BootSub_PopUnit[i,]))) / sum((Norm(BootSub_PopUnit[i,]) - Norm(PopUnit))^2 ))
-
-samp = colSums(BootSub_PopUnit)
-Neff_BootSub_t = NULL
-for(i in 1:H) Neff_BootSub_t = c(Neff_BootSub_t, sum(Norm(BootSub_PopUnit[i,]) * (1 - Norm(BootSub_PopUnit[i,]))) / sum((Norm(BootSub_PopUnit[i,]) - Norm(samp))^2 ))
-
-mean(Neff_BootSub)
-1 / mean(1 / Neff_BootSub)
-
-mean(Neff_BootSub_t)
-1 / mean(1 / Neff_BootSub_t)
-
-sum(BootSub_PopUnit)
-
-
-
-
-
-SampFn_2 = function(Vec, scalar){
-  Long = rep.int(1:length(Vec), times=Vec)
-  Samp = sample(Long, round(scalar * length(Long)), replace=TRUE)
-  New = tabulate(Samp, nbins=length(Vec))
-  return(New)
+# load packages ----
+# if you don't have the afscdata package installed, you will need to install this first:
+# devtools::install_github("afsc-assessments/afscdata", force = TRUE)
+# now install surveyISS:
+# devtools::install_github("BenWilliams-NOAA/surveyISS", force = TRUE)
+library(surveyISS)
+
+# set iterations ----
+# first, is this a full run?
+full_run = FALSE
+# set number of desired bootstrap iterations for full run
+iters_full = 500
+# set number of iterations for testing run time
+iters_test = 5
+# set number of iters for this run
+if(isTRUE(full_run)){
+  iters = iters_full
+} else{
+  iters = iters_test}
+
+# load data ----
+data <- surveyISS::query_data(survey = c(98, 143),
+                              region = 'nebs',
+                              species = 21740,
+                              yrs = 1979)
+# start run time test ----
+if(iters < iters_full){
+  tictoc::tic()
 }
 
 
+# run ISS with full bootstrap ----
+surveyISS::srvy_iss(iters = iters,
+                    lfreq_data = data$lfreq,
+                    specimen_data = data$specimen,
+                    cpue_data = data$cpue,
+                    strata_data = data$strata,
+                    yrs = 1979,
+                    boot_hauls = TRUE,
+                    boot_lengths = TRUE,
+                    boot_ages = TRUE,
+                    al_var = TRUE,
+                    al_var_ann = TRUE,
+                    age_err = TRUE,
+                    region = 'nebs',
+                    save_interm = FALSE,
+                    save_stats = FALSE,
+                    save = 'bootall')
 
-BStest = function(H, n, p, rep, scalar){
-  
-  Sub = t(rmultinom(H, n, p))
-  
-  Neff = NULL
-  for(r in 1:rep){
-    # bootstrap without scalar
-    BootSub = t(apply(Sub, MARGIN=1, FUN=SampFn))
-    samp = colSums(BootSub)
-    Neff_r = NULL
-    for(i in 1:H) Neff_r = c(Neff_r, sum(Norm(BootSub[i,]) * (1 - Norm(BootSub[i,]))) / sum((Norm(BootSub[i,]) - Norm(samp))^2 ))
-    
-    
-  BootSub = t(apply(Sub, MARGIN=1, FUN=SampFn_2))
-  samp = colSums(BootSub)
-  Neff_r = NULL
-  for(i in 1:H) Neff_r = c(Neff_r, sum(Norm(BootSub[i,]) * (1 - Norm(BootSub[i,]))) / sum((Norm(BootSub[i,]) - Norm(samp))^2 ))
-  Neff = c(Neff, mean(Neff_r))
-  }
+# run ISS with tow-level bootstrap ----
+surveyISS::srvy_iss(iters = iters,
+                    lfreq_data = data$lfreq,
+                    specimen_data = data$specimen,
+                    cpue_data = data$cpue,
+                    strata_data = data$strata,
+                    yrs = 1979,
+                    boot_hauls = TRUE,
+                    boot_lengths = FALSE,
+                    boot_ages = FALSE,
+                    al_var = TRUE,
+                    al_var_ann = TRUE,
+                    age_err = TRUE,
+                    region = 'nebs',
+                    save_interm = FALSE,
+                    save_stats = FALSE,
+                    save = 'boottow')
 
-  out = c(n, mean(Neff))
-  return(out)
+# stop run time test ----
+if(iters < iters_full){
+  end <- tictoc::toc(quiet = TRUE)
+  runtime <- round((((as.numeric(strsplit(end$callback_msg, split = " ")[[1]][1]) / iters) * iters_full) / 60) / 60, digits = 1)
+  cat("Full run of", crayon::green$bold(iters_full), "iterations will take", crayon::red$bold$underline$italic(runtime), "hours", "\u2693","\n")
+} else{
+  cat("All", crayon::green$bold$underline$italic('Done'), "\u2693","\n")
 }
-
-H = 100 # number of sample replicates (i.e., H for hauls)
-p = rdirichlet(1, alpha=rep(1,10)) [1,]
-rep = 1000 # number of bootstrap replicates
-n = seq(from = 10, to = 1000, by = 10) # sub-sample sizes
-test = NULL
-
-for(i in 1:length(n)) test = rbind(test, BStest(H, n[i], p, rep))
-
-plot(test[,1], test[,1] / test[,2], ylim = c(0.5, 1.5))
-abline(h=1)
-abline(h=mean(test[,1] / test[,2]), lty = 2)
-
-
-
-
-
-
-
-
-CompSub = t(apply(Rand, MARGIN=1, FUN=SampFn))
-
-
-
-Neff_PopUnit
-
-Norm(PopUnit)
-
 
 
