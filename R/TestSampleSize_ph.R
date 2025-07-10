@@ -107,17 +107,12 @@ colMeans(Save)
 
 
 
+# pete's test ----
 
-
-
-
-
-##### testing
-
-# effective sample size for mean across rows
+# effective sample size for single (tow) and double (tow-subsample) bootstrapping
 
 # set up sampling variables
-H = 100 # number of hauls=
+H = 100 # number of 'hauls'
 Nsims = 100 # number of sim replicates
 R = 25 # number of replicates of sim
 test = NULL
@@ -173,91 +168,9 @@ for(r in 1:R){
   }
   test = rbind(test, colMeans(Save))
 }
+colnames(test) <- c("Neff_survey", "Neff_tow", "Neff_tow_1", "Neff_tow_subsample", "Neff_tow_subsample_1", "n_total")
 test
 colMeans(test)
-
-
-
-
-
-## to do:
-# do a comparison in surveyISS between full bootstrap and haul only bootstrap
-# check out simulation to see if resampling haul causes issues
-
-# load packages ----
-# if you don't have the afscdata package installed, you will need to install this first:
-# devtools::install_github("afsc-assessments/afscdata", force = TRUE)
-# now install surveyISS:
-# devtools::install_github("BenWilliams-NOAA/surveyISS", force = TRUE)
-library(surveyISS)
-
-# set iterations ----
-# first, is this a full run?
-full_run = FALSE
-# set number of desired bootstrap iterations for full run
-iters_full = 500
-# set number of iterations for testing run time
-iters_test = 5
-# set number of iters for this run
-if(isTRUE(full_run)){
-  iters = iters_full
-} else{
-  iters = iters_test}
-
-# load data ----
-data <- surveyISS::query_data(survey = c(98, 143),
-                              region = 'nebs',
-                              species = 21740,
-                              yrs = 1979)
-# start run time test ----
-if(iters < iters_full){
-  tictoc::tic()
-}
-
-
-# run ISS with full bootstrap ----
-surveyISS::srvy_iss(iters = iters,
-                    lfreq_data = data$lfreq,
-                    specimen_data = data$specimen,
-                    cpue_data = data$cpue,
-                    strata_data = data$strata,
-                    yrs = 1979,
-                    boot_hauls = TRUE,
-                    boot_lengths = TRUE,
-                    boot_ages = TRUE,
-                    al_var = TRUE,
-                    al_var_ann = TRUE,
-                    age_err = TRUE,
-                    region = 'nebs',
-                    save_interm = FALSE,
-                    save_stats = FALSE,
-                    save = 'bootall')
-
-# run ISS with tow-level bootstrap ----
-surveyISS::srvy_iss(iters = iters,
-                    lfreq_data = data$lfreq,
-                    specimen_data = data$specimen,
-                    cpue_data = data$cpue,
-                    strata_data = data$strata,
-                    yrs = 1979,
-                    boot_hauls = TRUE,
-                    boot_lengths = FALSE,
-                    boot_ages = FALSE,
-                    al_var = TRUE,
-                    al_var_ann = TRUE,
-                    age_err = TRUE,
-                    region = 'nebs',
-                    save_interm = FALSE,
-                    save_stats = FALSE,
-                    save = 'boottow')
-
-# stop run time test ----
-if(iters < iters_full){
-  end <- tictoc::toc(quiet = TRUE)
-  runtime <- round((((as.numeric(strsplit(end$callback_msg, split = " ")[[1]][1]) / iters) * iters_full) / 60) / 60, digits = 1)
-  cat("Full run of", crayon::green$bold(iters_full), "iterations will take", crayon::red$bold$underline$italic(runtime), "hours", "\u2693","\n")
-} else{
-  cat("All", crayon::green$bold$underline$italic('Done'), "\u2693","\n")
-}
-
-
+# observations:
+# 1. tow-level bootstrap Neff is slightly larger than 'true' survey Neff (Neff_tow > Neff_survey)
+# 2. tow-subsample bootstrap Neff is smaller than 'true' survey Neff (Neff_tow_subsample < Neff_survey)
